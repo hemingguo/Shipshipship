@@ -11,6 +11,7 @@ struct Robot
     int x, y, goods; // 是否携带物品
     int status;      // 0表示恢复，1表示正常运行
     int mbx, mby;    // 此帧机器人所在的位置
+    int aimX, aimY;     //目标位置（added by cyh）
     Robot() {}
     Robot(int startX, int startY)
     {
@@ -41,6 +42,226 @@ struct Berth
     }
 } berth[berth_num + 10];
 
+struct Square
+{
+    int x, y;            // 坐标(可选，毕竟下标也能表示坐标；也可当作是目标坐标)
+    bool isBarrierExist; // 是否有障碍物
+    bool isGoodExist;    // 是否有货物
+    int goodValue;        // 
+    bool isBerth;           //
+    int sign;            // 该格子被标记的次数
+    bool narrow;         // 该格子是否是单向的，（两端都是障碍物）
+    Square(bool B, bool G)
+    {
+        isBarrierExist = B;
+        isGoodExist = G;
+        sign = 0;
+        narrow = false; // 待定
+    }
+};
+Square our_map[200][200]; // 创建地图
+map<pair<int, int>, bool> robotMap;//(x, y), haverobot
+//
+//robotaction by cyh
+//
+int dx[4] = {1, -1, 0, 0};
+int dy[4] = {0, 0, 1, -1};
+
+int disBerth[205][205];
+
+void initDisBerth(){
+    for(int i = 0; i < 200; i++)
+        for(int j = 0; j < 200; j++)
+            disBerth[i][j] = 45000;
+    for(int i = 0; i < berth_num; i++)
+    {
+        berthBfs(berth[i].x, berth[i].y);
+    }
+}
+bool isValid(int x, int y){
+    return (x >= 0 && x < 200 && y >=0 && y < 200 && (!our_map[x][y].isBarrierExist));
+}
+void berthBfs(int x, int y){
+    queue<pair<int, int>> q;
+    q.push({x, y});
+    disBerth[x][y] = 0;
+    while (!q.empty()) {
+        auto curr = q.front();
+        q.pop();
+        int curX = curr.first, curY = curr.second;
+        for (int i = 0; i < 4; i++) {
+            int newX = curX + dx[i];
+            int newY = curY + dy[i];
+            if(isValid(newX, newY) && disBerth[curX][curY] + 1 < disBerth[newX][newY]){
+                q.push({newX, newY});
+                disBerth[newX][newY] = disBerth[curX][curY] + 1;
+            }
+        }
+    }
+}
+float valueFunctionGood(int dis, int goodX, int goodY, int value){
+    return value/(float)(dis + disBerth[goodX][goodY]);
+}
+float maxW;
+pair<int, int> maxGoodPos;
+bool visitedMap[205][205];
+int robotPath [45000][11][2];
+int bfsQueue[45000][4];//x,y,step,lastStep;
+void robotAction(int state, int robotId){
+    int curX = robot[robotId].x, curY = robot[robotId].y;
+    if(robot[robotId].goods && our_map[curX][curY].isBerth){
+        printf("pull %d\n", robotId);
+        maxW = 0;
+        robot[robotId].goods = 0;
+        findAimGood(robot[robotId].x, robot[robotId].y);
+        if(maxW > 0){
+            robot[robotId].aimX = maxGoodPos.first;
+            robot[robotId].aimY = maxGoodPos.second;
+        }
+    }
+    else if((!robot[robotId].goods) && curX == robot[robotId].aimX && curY == robot[robotId].aimY){
+        printf("get %d\n", robotId);
+        pair<int, int> pos = findAimBerth(curX, curY);
+        robot[robotId].aimX = pos.first;
+        robot[robotId].aimY = pos.second;
+        robot[robotId].goods = our_map[curX][curY].goodValue;
+    }
+    int mov = robotBfsToAim(robot[robotId].x, robot[robotId].y, robot[robotId].aimX, robot[robotId].aimY);
+    if(mov != -1){
+        printf("move %d%d\n", robotId, mov);
+        robotMap[{curX, curY}] = 0;
+        robotMap[{curX + dx[mov], curY + dx[mov]}] = 1;
+        curX += dx[mov];
+        curY += dy[mov];
+    }
+    if(robot[robotId].goods && our_map[curX][curY].isBerth){
+        printf("pull %d\n", robotId);
+        maxW = 0;
+        robot[robotId].goods = 0;
+        findAimGood(robot[robotId].x, robot[robotId].y);
+        if(maxW > 0){
+            robot[robotId].aimX = maxGoodPos.first;
+            robot[robotId].aimY = maxGoodPos.second;
+        }
+    }
+    else if((!robot[robotId].goods) && curX == robot[robotId].aimX && curY == robot[robotId].aimY){
+        printf("get %d\n", robotId);
+        pair<int, int> pos = findAimBerth(curX, curY);
+        robot[robotId].aimX = pos.first;
+        robot[robotId].aimY = pos.second;
+        robot[robotId].goods = our_map[curX][curY].goodValue;
+    }
+}
+void findAimGood(int startX, int startY){
+    int front = 0, rear = 0;
+    for(int i = 0; i < 200; i++)
+        for(int j = 0; j < 200; j++)
+            visitedMap[i][j] = false;
+    visitedMap[startX][startY] = true;
+    bfsQueue[rear][0] = startX;
+    bfsQueue[rear][1] = startY;
+    bfsQueue[rear][2] = 0;
+    rear++;
+    visitedMap[startX][startY] = true;
+    while (front != rear) {
+        front++;
+        int curX = bfsQueue[front][0], curY = bfsQueue[front][1], curDis = bfsQueue[front][2];
+        if (our_map[curX][curY].isGoodExist && (!our_map[curX][curY].isBerth) && valueFunctionGood(curDis, curX, curY, our_map[curX][curY].goodValue) > maxW) {
+            maxW = valueFunctionGood(curDis, curX, curY, our_map[curX][curY].goodValue);
+            maxGoodPos = {curX, curY};
+        }
+        for (int i = 0; i < 4; i++) {
+            int newX = curX + dx[i];
+            int newY = curY + dy[i];
+            if (isValid(curX, curY) && !visitedMap[newX][newY]) {
+                visitedMap[newX][newY] = true;
+                bfsQueue[rear][0] = newX;
+                bfsQueue[rear][1] = newY;
+                bfsQueue[rear][2] = curDis + 1;
+                rear++;
+            }
+        }
+    }
+}
+pair<int, int> findAimBerth(int startX, int startY){
+    int front = 0, rear = 0;
+    if(our_map[startX][startY].isBerth)
+        return {startX, startY};
+    for(int i = 0; i < 200; i++)
+        for(int j = 0; j < 200; j++)
+            visitedMap[i][j] = false;
+    visitedMap[startX][startY] = true;
+    bfsQueue[rear][0] = startX;
+    bfsQueue[rear][1] = startY;
+    bfsQueue[rear][2] = 0;
+    rear++;
+    visitedMap[startX][startY] = true;
+    while (front != rear) {
+        front++;
+        int curX = bfsQueue[front][0], curY = bfsQueue[front][1], curDis = bfsQueue[front][2];
+        for (int i = 0; i < 4; i++) {
+            int newX = curX + dx[i];
+            int newY = curY + dy[i];
+            if (isValid(curX, curY) && !visitedMap[newX][newY]) {
+                if(our_map[newX][newY].isBerth)
+                    return {newX, newY};
+                visitedMap[newX][newY] = true;
+                bfsQueue[rear][0] = newX;
+                bfsQueue[rear][1] = newY;
+                bfsQueue[rear][2] = curDis + 1;
+                rear++;
+            }
+        }
+    }
+    return {startX, startY};
+}
+int findNextStep(int startX, int startY, int bfsId){
+    int lastId = bfsQueue[bfsId][3];
+    if(bfsQueue[lastId][0] == startX && bfsQueue[lastId][1] == startY){
+        for(int i = 0; i < 4; i++)
+            if(bfsQueue[bfsId][0] - startX == dx[i] && bfsQueue[bfsId][1] - startY == dy[i])
+                return i;
+    }
+    return findNextStep(startX, startY, lastId);
+}
+int robotBfsToAim(int startX, int startY, int aimX, int aimY){
+    int front = 0, rear = 0;
+    if(startX == aimX && startY == aimY)
+        return -1;
+    for(int i = 0; i < 200; i++)
+        for(int j = 0; j < 200; j++)
+            visitedMap[i][j] = false;
+    visitedMap[startX][startY] = true;
+    bfsQueue[rear][0] = startX;
+    bfsQueue[rear][1] = startY;
+    bfsQueue[rear][2] = 0;
+    bfsQueue[rear][3] = 0;
+    rear++;
+    visitedMap[startX][startY] = true;
+    while (front != rear) {
+        front++;
+        int curX = bfsQueue[front][0], curY = bfsQueue[front][1], curDis = bfsQueue[front][2];
+        for (int i = 0; i < 4; i++) {
+            int newX = curX + dx[i];
+            int newY = curY + dy[i];
+            if (isValid(newX, newY) && !visitedMap[newX][newY] && (!robotMap[{newX, newY}])) {
+                if(curX == aimX && curY == aimY)
+                    return findNextStep(startX, startY, front);
+                visitedMap[newX][newY] = true;
+                bfsQueue[rear][0] = newX;
+                bfsQueue[rear][1] = newY;
+                bfsQueue[rear][2] = bfsQueue[front][2] + 1;
+                bfsQueue[rear][3] = front;
+                rear++;
+            }
+        }
+    }
+    return -1;
+}
+//
+//end of robotaction
+//
+
 // 船的specific_status
 #define WAIT 3
 #define LOAD 4
@@ -67,6 +288,11 @@ struct Boat
 int money, boat_capacity, id;
 char ch[N][N]; // 字符地图
 int gds[N][N];
+//added by cyh
+bool isValid(int x, int y) {
+    return (x >= 0 && x < 200 && y >= 0 && y < 200 && ch[x][y] == '.');
+}
+//
 void Init()
 {
     for (int i = 1; i <= n; i++)
@@ -268,6 +494,9 @@ void GiveBoatCommand()
 int main()
 {
     Init();
+    //added by cyh
+    initDisBerth();
+    //
     for (int zhen = 1; zhen <= 15000; zhen++)
     {
         int id = Input();
