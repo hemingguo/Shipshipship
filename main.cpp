@@ -1,9 +1,9 @@
-//#include <unordered_map>
-//#include <map>
-//#include <queue>
-//#include <utility>
-//#include <iostream>
- #include <bits/stdc++.h>
+// #include <unordered_map>
+// #include <map>
+// #include <queue>
+// #include <utility>
+// #include <iostream>
+#include <bits/stdc++.h>
 using namespace std;
 
 const int n = 200;
@@ -11,28 +11,30 @@ const int robot_num = 10;
 const int berth_num = 10;
 const int N = 210;
 
-
 int money, boat_capacity, id;
 char ch[N][N]; // 字符地图
 int gds[N][N];
 
 struct Square
 {
-    bool isBarrierExist;          // 是否有障碍物
-    bool isGoodExist;             // 是否有货物
-    bool isRobotExist;            // 是否有机器人
-    bool isBerth;            // 是否是泊位
-    int goodValue;                // 货物价值
-    int goodTime;                 // 货物存留时间
+    bool isBarrierExist; // 是否有障碍物
+    bool isGoodExist;    // 是否有货物
+    bool isRobotExist;   // 是否有机器人
+    bool isBerth;        // 是否是泊位
+    int goodValue;       // 货物价值
+    int goodTime;        // 货物存留时间
+    int generateTime;
     int goodRobotId;
-//    unordered_map<int, int> sign; // 该格子被标记的路径(经过该格子第几帧<-->机器人编号)
+    //    unordered_map<int, int> sign; // 该格子被标记的路径(经过该格子第几帧<-->机器人编号)
     Square() : goodRobotId(-1), isBarrierExist(false), isGoodExist(false), isRobotExist(false), isBerth(false), goodTime(0), goodValue(0)
     {
     }
-    void generateGood() // 货物生成
+    void generateGood(int val, int tim) // 货物生成
     {
+        goodValue = val;
         isGoodExist = true;
-        goodTime = 1000;
+        // goodTime = 1000;
+        generateTime = tim;
     }
     // void testGood() // 货物存留计时器
     // {
@@ -45,20 +47,21 @@ struct Square
     //         }
     //     }
     // }
-    bool GoodExist(){
+    bool GoodExist()
+    {
         return (id - generateTime <= 1000) && isGoodExist;
     }
 };
 
 Square our_map[n][n]; // 创建地图
 
-
 struct Robot
 {
     int x, y, goods; // 是否携带物品
     int status;      // 0表示恢复，1表示正常运行
     int mbx, mby;    // 此帧机器人所在的位置
-    int aimX, aimY;     //目标位置（added by cyh）
+    int aimX, aimY;  // 目标位置（added by cyh）
+    int goodValue;   // 携带的货物的价值
     Robot() {}
     Robot(int startX, int startY)
     {
@@ -90,63 +93,85 @@ struct Berth
 
         is_occupied = false;
     }
+    /*
+     * \brief 判断(x, y)是否在泊位内
+     */
+    bool isInBerth(int x, int y)
+    {
+        return (x >= this->x && x < this->x + 4 && y >= this->y && y < this->y + 4);
+    }
 } berth[berth_num + 10];
-
-
-
-
-map<pair<int, int>, bool> robotMap;//(x, y), haverobot
+/*
+ * \brief 判断(x, y)在哪个泊位内
+ */
+int InWhichBerth(int x, int y)
+{
+    for (int i = 0; i < berth_num; i++)
+    {
+        if (berth[i].isInBerth(x, y))
+            return i;
+    }
+    return -1;
+}
+map<pair<int, int>, bool> robotMap; //(x, y), haverobot
 //
-//robotaction by cyh
+// robotaction by cyh
 //
 int dx[4] = {0, 0, -1, 1};
 int dy[4] = {1, -1, 0, 0};
 int disBerth[205][205];
 
-
-bool isValid(int x, int y){
-    return (x >= 0 && x < 200 && y >=0 && y < 200 && (!our_map[x][y].isBarrierExist));
+bool isValid(int x, int y)
+{
+    return (x >= 0 && x < 200 && y >= 0 && y < 200 && (!our_map[x][y].isBarrierExist));
 }
-void berthBfs(int x, int y){
-    queue<pair<int, int> > q;
+void berthBfs(int x, int y)
+{
+    queue<pair<int, int>> q;
     q.push({x, y});
     disBerth[x][y] = 0;
-    while (!q.empty()) {
+    while (!q.empty())
+    {
         pair<int, int> curr = q.front();
         q.pop();
         int curX = curr.first, curY = curr.second;
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < 4; i++)
+        {
             int newX = curX + dx[i];
             int newY = curY + dy[i];
-            if(isValid(newX, newY) && disBerth[curX][curY] + 1 < disBerth[newX][newY]){
+            if (isValid(newX, newY) && disBerth[curX][curY] + 1 < disBerth[newX][newY])
+            {
                 q.push({newX, newY});
                 disBerth[newX][newY] = disBerth[curX][curY] + 1;
             }
         }
     }
 }
-void initDisBerth(){
-    for(int i = 0; i < 200; i++)
-        for(int j = 0; j < 200; j++)
+void initDisBerth()
+{
+    for (int i = 0; i < 200; i++)
+        for (int j = 0; j < 200; j++)
             disBerth[i][j] = 45000;
-    for(int i = 0; i < berth_num; i++)
+    for (int i = 0; i < berth_num; i++)
     {
         berthBfs(berth[i].x, berth[i].y);
     }
 }
-float valueFunctionGood(int dis, int goodX, int goodY, int value){
-    return value/(float)(dis + disBerth[goodX][goodY]);
+float valueFunctionGood(int dis, int goodX, int goodY, int value)
+{
+    return value / (float)(dis + disBerth[goodX][goodY]);
 }
 float maxW;
 pair<int, int> maxGoodPos;
 bool visitedMap[205][205];
-int robotPath [45000][11][2];
-int bfsQueue[45000][4];//x,y,step,lastStep;
+int robotPath[45000][11][2];
+int bfsQueue[45000][4]; // x,y,step,lastStep;
 
-void findAimGood(int startX, int startY){
+void findAimGood(int startX, int startY)
+{
     int front = 0, rear = 0;
-    for(int i = 0; i < 200; i++)
-        for(int j = 0; j < 200; j++)
+    for (int i = 0; i < 200; i++)
+        for (int j = 0; j < 200; j++)
             visitedMap[i][j] = false;
     visitedMap[startX][startY] = true;
     bfsQueue[rear][0] = startX;
@@ -154,19 +179,23 @@ void findAimGood(int startX, int startY){
     bfsQueue[rear][2] = 0;
     rear++;
     visitedMap[startX][startY] = true;
-//    cout<<startX<<' '<<startY<<"START"<<endl;
-    while (front != rear) {
+    //    cout<<startX<<' '<<startY<<"START"<<endl;
+    while (front != rear)
+    {
         int curX = bfsQueue[front][0], curY = bfsQueue[front][1], curDis = bfsQueue[front][2];
 
         front++;
-        if (our_map[curX][curY].GoodExist() && our_map[curX][curY].goodRobotId == -1 && (!our_map[curX][curY].isBerth) && valueFunctionGood(curDis, curX, curY, our_map[curX][curY].goodValue) > maxW) {
+        if (our_map[curX][curY].GoodExist() && our_map[curX][curY].goodRobotId == -1 && (!our_map[curX][curY].isBerth) && valueFunctionGood(curDis, curX, curY, our_map[curX][curY].goodValue) > maxW)
+        {
             maxW = valueFunctionGood(curDis, curX, curY, our_map[curX][curY].goodValue);
             maxGoodPos = {curX, curY};
         }
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < 4; i++)
+        {
             int newX = curX + dx[i];
             int newY = curY + dy[i];
-            if (isValid(newX, newY) && !visitedMap[newX][newY]) {
+            if (isValid(newX, newY) && !visitedMap[newX][newY])
+            {
                 visitedMap[newX][newY] = true;
                 bfsQueue[rear][0] = newX;
                 bfsQueue[rear][1] = newY;
@@ -176,12 +205,13 @@ void findAimGood(int startX, int startY){
         }
     }
 }
-pair<int, int> findAimBerth(int startX, int startY){
+pair<int, int> findAimBerth(int startX, int startY)
+{
     int front = 0, rear = 0;
-    if(our_map[startX][startY].isBerth)
+    if (our_map[startX][startY].isBerth)
         return {startX, startY};
-    for(int i = 0; i < 200; i++)
-        for(int j = 0; j < 200; j++)
+    for (int i = 0; i < 200; i++)
+        for (int j = 0; j < 200; j++)
             visitedMap[i][j] = false;
     visitedMap[startX][startY] = true;
     bfsQueue[rear][0] = startX;
@@ -189,14 +219,17 @@ pair<int, int> findAimBerth(int startX, int startY){
     bfsQueue[rear][2] = 0;
     rear++;
     visitedMap[startX][startY] = true;
-    while (front != rear) {
+    while (front != rear)
+    {
         int curX = bfsQueue[front][0], curY = bfsQueue[front][1], curDis = bfsQueue[front][2];
         front++;
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < 4; i++)
+        {
             int newX = curX + dx[i];
             int newY = curY + dy[i];
-            if (isValid(newX, newY) && !visitedMap[newX][newY]) {
-                if(our_map[newX][newY].isBerth)
+            if (isValid(newX, newY) && !visitedMap[newX][newY])
+            {
+                if (our_map[newX][newY].isBerth)
                     return {newX, newY};
                 visitedMap[newX][newY] = true;
                 bfsQueue[rear][0] = newX;
@@ -208,22 +241,25 @@ pair<int, int> findAimBerth(int startX, int startY){
     }
     return {startX, startY};
 }
-int findNextStep(int startX, int startY, int bfsId){
+int findNextStep(int startX, int startY, int bfsId)
+{
     int lastId = bfsQueue[bfsId][3];
-//    	cout<<"FIND@"<<endl;
-    if(bfsQueue[lastId][0] == startX && bfsQueue[lastId][1] == startY){
-        for(int i = 0; i < 4; i++)
-            if(bfsQueue[bfsId][0] - startX == dx[i] && bfsQueue[bfsId][1] - startY == dy[i])
+    //    	cout<<"FIND@"<<endl;
+    if (bfsQueue[lastId][0] == startX && bfsQueue[lastId][1] == startY)
+    {
+        for (int i = 0; i < 4; i++)
+            if (bfsQueue[bfsId][0] - startX == dx[i] && bfsQueue[bfsId][1] - startY == dy[i])
                 return i;
     }
     return findNextStep(startX, startY, lastId);
 }
-int robotBfsToAim(int startX, int startY, int aimX, int aimY){
+int robotBfsToAim(int startX, int startY, int aimX, int aimY)
+{
     int front = 0, rear = 0;
-    if(startX == aimX && startY == aimY)
+    if (startX == aimX && startY == aimY)
         return -1;
-    for(int i = 0; i < 200; i++)
-        for(int j = 0; j < 200; j++)
+    for (int i = 0; i < 200; i++)
+        for (int j = 0; j < 200; j++)
             visitedMap[i][j] = false;
     visitedMap[startX][startY] = true;
     bfsQueue[rear][0] = startX;
@@ -232,18 +268,22 @@ int robotBfsToAim(int startX, int startY, int aimX, int aimY){
     bfsQueue[rear][3] = 0;
     rear++;
     visitedMap[startX][startY] = true;
-    while (front != rear) {
+    while (front != rear)
+    {
         int curX = bfsQueue[front][0], curY = bfsQueue[front][1], curDis = bfsQueue[front][2];
-//		        cout<<curX<<' '<<curY<<' '<<curDis<<endl;
+        //		        cout<<curX<<' '<<curY<<' '<<curDis<<endl;
         front++;
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < 4; i++)
+        {
             int newX = curX + dx[i];
             int newY = curY + dy[i];
-            if (isValid(newX, newY) && !visitedMap[newX][newY] && (!robotMap[{newX, newY}])) {
-                if(curX == aimX && curY == aimY){
-//                	cout<<"FIND!"<<endl;
+            if (isValid(newX, newY) && !visitedMap[newX][newY] && (!robotMap[{newX, newY}]))
+            {
+                if (curX == aimX && curY == aimY)
+                {
+                    //                	cout<<"FIND!"<<endl;
                     return findNextStep(startX, startY, front - 1);
-				}
+                }
                 visitedMap[newX][newY] = true;
                 bfsQueue[rear][0] = newX;
                 bfsQueue[rear][1] = newY;
@@ -255,96 +295,127 @@ int robotBfsToAim(int startX, int startY, int aimX, int aimY){
     }
     return -1;
 }
-void robotInit(int robotId){
-	maxW = 0;
+void robotInit(int robotId)
+{
+    maxW = 0;
     robot[robotId].goods = 0;
     maxGoodPos = {robot[robotId].x, robot[robotId].y};
     findAimGood(robot[robotId].x, robot[robotId].y);
-    if(maxW > 0){
+    if (maxW > 0)
+    {
         robot[robotId].aimX = maxGoodPos.first;
         robot[robotId].aimY = maxGoodPos.second;
     }
-//    cout<<maxW<<' '<<robotId<<' '<<robot[robotId].aimX<<' '<<robot[robotId].aimY<<endl;
-} 
-void robotAction(int state, int robotId){
+    //    cout<<maxW<<' '<<robotId<<' '<<robot[robotId].aimX<<' '<<robot[robotId].aimY<<endl;
+}
+void robotAction(int state, int robotId)
+{
     int curX = robot[robotId].x, curY = robot[robotId].y;
-    if(robot[robotId].goods && our_map[curX][curY].isBerth){
+    if (robot[robotId].goods && our_map[curX][curY].isBerth)
+    {
         printf("pull %d\n", robotId);
+        // 更新泊位的货物队列。。。如果没pull成功呢？
+        int berthId = InWhichBerth(curX, curY);
+        if (berthId != -1)
+        {
+            berth[berthId].goods.push(robot[robotId].goodValue);
+        }
         maxW = 0;
         robot[robotId].goods = 0;
+        robot[robotId].goodValue = 0; // 货物价值清零
         findAimGood(robot[robotId].x, robot[robotId].y);
-//        if(maxW > 0){
-            robot[robotId].aimX = maxGoodPos.first;
-            robot[robotId].aimY = maxGoodPos.second;
-            our_map[robot[robotId].x][robot[robotId].y].goodRobotId = -1;
-            our_map[maxGoodPos.first][maxGoodPos.second].goodRobotId = robotId;
-//        }
+        //        if(maxW > 0){
+        robot[robotId].aimX = maxGoodPos.first;
+        robot[robotId].aimY = maxGoodPos.second;
+        our_map[robot[robotId].x][robot[robotId].y].goodRobotId = -1;
+        our_map[maxGoodPos.first][maxGoodPos.second].goodRobotId = robotId;
+        //        }
     }
-    else if((!robot[robotId].goods) && curX == robot[robotId].aimX && curY == robot[robotId].aimY ){
-    	if(!our_map[curX][curY].GoodExist()) {
+    else if ((!robot[robotId].goods) && curX == robot[robotId].aimX && curY == robot[robotId].aimY)
+    {
+        if (!our_map[curX][curY].GoodExist())
+        {
             maxW = 0;
             robot[robotId].goods = 0;
             findAimGood(robot[robotId].x, robot[robotId].y);
-            if(maxW > 0){
+            if (maxW > 0)
+            {
                 robot[robotId].aimX = maxGoodPos.first;
                 robot[robotId].aimY = maxGoodPos.second;
             }
         }
-        else{
+        else
+        {
             printf("get %d\n", robotId);
             pair<int, int> pos = findAimBerth(curX, curY);
             robot[robotId].aimX = pos.first;
             robot[robotId].aimY = pos.second;
-            robot[robotId].goods = our_map[curX][curY].goodValue;
+            robot[robotId].goods = 1;                                 //
+            robot[robotId].goodValue = our_map[curX][curY].goodValue; //
+            // robot[robotId].goods = our_map[curX][curY].goodValue;
             our_map[curX][curY].isGoodExist = false;
         }
-
     }
-//    cout<<"TOCALAULATE"<<endl;
+    //    cout<<"TOCALAULATE"<<endl;
     int mov = robotBfsToAim(robot[robotId].x, robot[robotId].y, robot[robotId].aimX, robot[robotId].aimY);
-//    cout<<robotId<<' '<<robot[robotId].aimX<<' '<<robot[robotId].aimY<<' '<<mov<<endl; 
-    if(mov != -1){
+    //    cout<<robotId<<' '<<robot[robotId].aimX<<' '<<robot[robotId].aimY<<' '<<mov<<endl;
+    if (mov != -1)
+    {
         printf("move %d %d\n", robotId, mov);
         robotMap[{curX, curY}] = 0;
         robotMap[{curX + dx[mov], curY + dx[mov]}] = 1;
         curX += dx[mov];
         curY += dy[mov];
     }
-    if(robot[robotId].goods && our_map[curX][curY].isBerth){
+    if (robot[robotId].goods && our_map[curX][curY].isBerth)
+    {
         printf("pull %d\n", robotId);
+        // 更新泊位的货物队列
+        int berthId = InWhichBerth(curX, curY);
+        if (berthId != -1)
+        {
+            berth[berthId].goods.push(robot[robotId].goodValue);
+        }
         maxW = 0;
         robot[robotId].goods = 0;
+        robot[robotId].goodValue = 0; // 货物价值清零
         findAimGood(robot[robotId].x, robot[robotId].y);
-        if(maxW > 0){
+        if (maxW > 0)
+        {
             robot[robotId].aimX = maxGoodPos.first;
             robot[robotId].aimY = maxGoodPos.second;
         }
     }
-    else if((!robot[robotId].goods) && curX == robot[robotId].aimX && curY == robot[robotId].aimY){
-    	if(!our_map[curX][curY].GoodExist()) {
+    else if ((!robot[robotId].goods) && curX == robot[robotId].aimX && curY == robot[robotId].aimY)
+    {
+        if (!our_map[curX][curY].GoodExist())
+        {
             maxW = 0;
             robot[robotId].goods = 0;
             findAimGood(curX, curX);
-//            if(maxW > 0){
-                robot[robotId].aimX = maxGoodPos.first;
-                robot[robotId].aimY = maxGoodPos.second;
-                
+            //            if(maxW > 0){
+            robot[robotId].aimX = maxGoodPos.first;
+            robot[robotId].aimY = maxGoodPos.second;
+
             our_map[robot[robotId].x][robot[robotId].y].goodRobotId = -1;
             our_map[maxGoodPos.first][maxGoodPos.second].goodRobotId = robotId;
-//            }
+            //            }
         }
-        else{
+        else
+        {
             printf("get %d\n", robotId);
             pair<int, int> pos = findAimBerth(curX, curY);
             robot[robotId].aimX = pos.first;
             robot[robotId].aimY = pos.second;
-            robot[robotId].goods = our_map[curX][curY].goodValue;
+            robot[robotId].goods = 1;                                 //
+            robot[robotId].goodValue = our_map[curX][curY].goodValue; //
+            // robot[robotId].goods = our_map[curX][curY].goodValue;
             our_map[curX][curY].isGoodExist = false;
         }
     }
 }
 //
-//end of robotaction
+// end of robotaction
 //
 
 // 船的specific_status
@@ -431,7 +502,6 @@ void UpdateBoatSpecificState(int boat_id)
             boat[boat_id].goods_value += berth[boat[boat_id].pos].goods.front();
             berth[boat[boat_id].pos].goods.pop();
             boat[boat_id].num += 1;
-
         }
     }
 }
@@ -446,13 +516,14 @@ int Input()
     {
         int x, y, val;
         scanf("%d%d%d", &x, &y, &val);
-        our_map[x][y].generateGood(); // 生成货物
-
+        our_map[x][y].generateGood(val, id); // 生成货物
     }
+    robotMap.clear();
     for (int i = 0; i < robot_num; i++)
     {
         int sts;
         scanf("%d%d%d%d", &robot[i].goods, &robot[i].x, &robot[i].y, &sts);
+        robotMap[{robot[i].x, robot[i].y}] = 1;
     }
     for (int i = 0; i < 5; i++)
         scanf("%d%d\n", &boat[i].status, &boat[i].pos);
@@ -465,7 +536,6 @@ int Input()
     scanf("%s", okk);
     return id;
 }
-
 
 /**
  * \brief 计算目前泊位上船只可装下的货物的总价值
@@ -525,7 +595,7 @@ int GetBerthId()
         priority[i] = tmp_priority;
     }
     // 选择优先级最高的泊位
-    int max_priority = -99999;
+    int max_priority = -999999;
     int max_priority_id = -1;
     for (int i = 0; i < berth_num; i++)
     {
@@ -544,7 +614,8 @@ int GetBerthId()
  */
 int GetThreshold(int boat_id)
 {
-    int threshold = berth[boat[boat_id].pos].transport_time;
+    int threshold = 50;
+    // int threshold = berth[boat[boat_id].pos].transport_time;
     return threshold;
 }
 
@@ -589,26 +660,25 @@ void GiveBoatCommand()
 }
 int main()
 {
-//     freopen("output.txt", "r", stdin);
-//     freopen("myoutput.txt", "w", stdout);
+    //     freopen("output.txt", "r", stdin);
+    //     freopen("myoutput.txt", "w", stdout);
     Init();
-    //added by cyh
+    // added by cyh
     mapInit(); // 地图类初始化
     initDisBerth();
     //
     for (int zhen = 1; zhen <= 15000; zhen++)
     {
         id = Input();
-        if(zhen == 1)
-        	for (int i = 0; i < robot_num; i++)
-        	{
-//        		cout<<robot[i].x<<' '<<robot[i].y<<endl;
-        		robotInit(i);
-        		
-			}
+        if (zhen == 1)
+            for (int i = 0; i < robot_num; i++)
+            {
+                //        		cout<<robot[i].x<<' '<<robot[i].y<<endl;
+                robotInit(i);
+            }
         for (int i = 0; i < robot_num; i++)
             // 为机器人下达命令........
-//             printf("move %d %d\n", i, rand() % 4);
+            //             printf("move %d %d\n", i, rand() % 4);
             robotAction(1, i);
         // 为船只下达命令........
         void GiveBoatCommand();
