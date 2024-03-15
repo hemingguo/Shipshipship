@@ -640,6 +640,7 @@ void GiveBoatCommand()
 {
     for (int i = 0; i < 5; i++)
     {
+        // printf("boat[i].specific_status:%d\n", boat[i].specific_status);
         if (boat[i].specific_status == DONE)
         { // 如果船只运输完成，在虚拟点
             boat[i].specific_status = TO_BERTH;
@@ -677,11 +678,13 @@ int main()
                 robotInit(i);
             }
         for (int i = 0; i < robot_num; i++)
+        {
             // 为机器人下达命令........
             //             printf("move %d %d\n", i, rand() % 4);
             robotAction(1, i);
+        }
         // 为船只下达命令........
-        void GiveBoatCommand();
+        GiveBoatCommand();
         puts("OK");
         fflush(stdout);
     }
