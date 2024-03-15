@@ -614,8 +614,8 @@ int GetBerthId()
  */
 int GetThreshold(int boat_id)
 {
-    int threshold = 50;
-    // int threshold = berth[boat[boat_id].pos].transport_time;
+    // int threshold = 50;
+    int threshold = berth[boat[boat_id].pos].transport_time / 2;
     return threshold;
 }
 
