@@ -194,7 +194,7 @@ void findAimGood(int startX, int startY)
         {
             int newX = curX + dx[i];
             int newY = curY + dy[i];
-            if (isValid(newX, newY) && !visitedMap[newX][newY])
+            if (isValid(newX, newY) && !visitedMap[newX][newY] && !(front <= 10 && robotMap[{newX, newY}] != 0))
             {
                 visitedMap[newX][newY] = true;
                 bfsQueue[rear][0] = newX;
@@ -272,21 +272,27 @@ int robotBfsToAim(int startX, int startY, int aimX, int aimY, int robotId)
     while (front != rear)
     {
         int curX = bfsQueue[front][0], curY = bfsQueue[front][1], curDis = bfsQueue[front][2];
-        //		        cout<<curX<<' '<<curY<<' '<<curDis<<endl;
         front++;
-	                if (curX == aimX && curY == aimY)
-	                {
-	                    return findNextStep(startX, startY, front - 1);
-	                }
+        if (curX == aimX && curY == aimY)
+        {
+            return findNextStep(startX, startY, front - 1);
+        }
         for (int i = 0; i < 4; i++)
         {
-            int newX = curX + dx[i];
-            int newY = curY + dy[i];
+        	int newX, newY;
+        	if(robot[robotId].goods == 1){
+        		newX = curX + dx[i];
+            	newY = curY + dy[i];
+			}
+			else{
+	            newX = curX + dx[3 - i];
+	            newY = curY + dy[3 - i];
+			}
             if (isValid(newX, newY) && !visitedMap[newX][newY])
             {
             	if(front <= 5 && robotMap[{newX, newY}] != 0 && robotMap[{newX, newY}] < robotId + 1)
             		return -1;
-            	if(robotMap[{newX, newY}] == 0){
+            	if(robotMap[{newX, newY}] == 0 || front >=10){
 	                visitedMap[newX][newY] = true;
 	                bfsQueue[rear][0] = newX;
 	                bfsQueue[rear][1] = newY;
