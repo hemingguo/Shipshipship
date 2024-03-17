@@ -164,8 +164,8 @@ float valueFunctionGood(int dis, int goodX, int goodY, int value)
 float maxW;
 pair<int, int> maxGoodPos;
 bool visitedMap[205][205];
-int robotPath[45000][11][2];
-int bfsQueue[45000][4]; // x,y,step,lastStep;
+int robotPath[45000][11];
+int bfsQueue[45000][5]; // x,y,step,lastStep,action;
 
 void findAimGood(int startX, int startY)
 {
@@ -241,18 +241,16 @@ pair<int, int> findAimBerth(int startX, int startY)
     }
     return {startX, startY};
 }
-int findNextStep(int startX, int startY, int bfsId)
+int findNextStep(int startX, int startY, int bfsId, int robotId)
 {
     int lastId = bfsQueue[bfsId][3];
     //    	cout<<"FIND@"<<endl;
+    robotPath[bfsQueue[bfsId][2]][robotId] = bfsQueue[bfsId][4];
     if (bfsQueue[lastId][0] == startX && bfsQueue[lastId][1] == startY)
     {
-        for (int i = 0; i < 4; i++)
-            if (bfsQueue[bfsId][0] - startX == dx[i] && bfsQueue[bfsId][1] - startY == dy[i])
-                return i;
-        return -1;
+        return bfsQueue[bfsId][4];
     }
-    return findNextStep(startX, startY, lastId);
+    return findNextStep(startX, startY, lastId, robotId);
 }
 int robotBfsToAim(int startX, int startY, int aimX, int aimY, int robotId)
 {
@@ -275,21 +273,21 @@ int robotBfsToAim(int startX, int startY, int aimX, int aimY, int robotId)
         front++;
         if (curX == aimX && curY == aimY)
         {
-            return findNextStep(startX, startY, front - 1);
+            return findNextStep(startX, startY, front - 1, robotId);
         }
         for (int i = 0; i < 4; i++)
         {
             int newX, newY;
-            if (robot[robotId].goods == 1)
-            {
+            // if (robot[robotId].goods == 1)
+            // {
                 newX = curX + dx[i];
                 newY = curY + dy[i];
-            }
-            else
-            {
-                newX = curX + dx[3 - i];
-                newY = curY + dy[3 - i];
-            }
+            // }
+            // else
+            // {
+            //     newX = curX + dx[3 - i];
+            //     newY = curY + dy[3 - i];
+            // }
             if (isValid(newX, newY) && !visitedMap[newX][newY])
             {
                 if (front <= 5 && robotMap[{newX, newY}] != 0 && robotMap[{newX, newY}] < robotId + 1)
@@ -301,6 +299,7 @@ int robotBfsToAim(int startX, int startY, int aimX, int aimY, int robotId)
                     bfsQueue[rear][1] = newY;
                     bfsQueue[rear][2] = bfsQueue[front - 1][2] + 1;
                     bfsQueue[rear][3] = front - 1;
+                    bfsQueue[rear][4] = i;
                     rear++;
                 }
             }
