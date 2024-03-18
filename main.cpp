@@ -162,11 +162,14 @@ float valueFunctionGood(int dis, int goodX, int goodY, int value)
     return value / (float)(dis + disBerth[goodX][goodY]);
 }
 
+
 bool visitedMap[205][205];
-int robotPath[45000][11];
+
+int robotPath[45000][11];  //step, robot_id + 1
+int robotStep[11][2]; // current_step, total_step;
+
 int bfsQueue[45000][5]; // x,y,step,lastStep,action;
-int totalValue[10];
-int totalNum[10];
+
 pair<int, int> findAimGood(int startX, int startY)
 {
 	float maxW = 0;
@@ -205,6 +208,7 @@ pair<int, int> findAimGood(int startX, int startY)
             }
         }
     }
+    return maxGoodPos;
     return maxGoodPos;
 }
 pair<int, int> findAimBerth(int startX, int startY)
@@ -254,6 +258,7 @@ int findNextStep(int startX, int startY, int bfsId, int robotId)
     return findNextStep(startX, startY, lastId, robotId);
 }
 int seq[4] = {0, 2, 1, 3};
+int seq[4] = {0, 2, 1, 3};
 int robotBfsToAim(int startX, int startY, int aimX, int aimY, int robotId)
 {
     int front = 0, rear = 0;
@@ -282,6 +287,8 @@ int robotBfsToAim(int startX, int startY, int aimX, int aimY, int robotId)
             int newX, newY;
             newX = curX + dx[seq[i]];
             newY = curY + dy[seq[i]];
+            newX = curX + dx[seq[i]];
+            newY = curY + dy[seq[i]];
             if (isValid(newX, newY) && !visitedMap[newX][newY])
             {
                 if (front <= 10 && robotMap[{newX, newY}] != 0 && robotMap[{newX, newY}] < robotId + 1)
@@ -294,6 +301,7 @@ int robotBfsToAim(int startX, int startY, int aimX, int aimY, int robotId)
                     bfsQueue[rear][2] = bfsQueue[front - 1][2] + 1;
                     bfsQueue[rear][3] = front - 1;
                     bfsQueue[rear][4] = seq[i];
+                    bfsQueue[rear][4] = seq[i];
                     rear++;
                 }
             }
@@ -304,6 +312,9 @@ int robotBfsToAim(int startX, int startY, int aimX, int aimY, int robotId)
 void toGoods(int robotId)
 {
     our_map[robot[robotId].aimX][robot[robotId].aimY].goodRobotId = -1;
+    pair<int, int> pos = findAimGood(robot[robotId].x, robot[robotId].y);
+    robot[robotId].aimX = pos.first;
+    robot[robotId].aimY = pos.second;
     pair<int, int> pos = findAimGood(robot[robotId].x, robot[robotId].y);
     robot[robotId].aimX = pos.first;
     robot[robotId].aimY = pos.second;
@@ -402,6 +413,66 @@ void robotAction(int robotId)
 //
 // end of robotaction
 //
+
+
+// start of the collision judgment
+
+bool isAroundSafe (int robotId){    // 检测周围环境是否有碰撞可能
+    switch(robotPath[robotStep[robotId][0]][robotId]){
+        case -1:
+            if((robotMap[{robot[robotId].x + dx[0] ,robot[robotId].y + dy[0]}] == 0) && (robotMap[{robot[robotId].x + dx[1] ,robot[robotId].y + dy[1]}] == 0) && (robotMap[{robot[robotId].x + dx[2] ,robot[robotId].y + dy[2]}] == 0) && (robotMap[{robot[robotId].x + dx[3] ,robot[robotId].y + dy[3]}] == 0)){return true;}
+            else{return false;}
+            break;
+        case 0:
+            if((robotMap[{robot[robotId].x ,robot[robotId].y + 2}] == 0) && (robotMap[{robot[robotId].x - 1 ,robot[robotId].y + 1}] == 0) && (robotMap[{robot[robotId].x + 1 ,robot[robotId].y + 1}] == 0)){return true;}
+            else{return false;}
+            break;
+        case 1:
+            if((robotMap[{robot[robotId].x ,robot[robotId].y - 2}] == 0) && (robotMap[{robot[robotId].x - 1 ,robot[robotId].y - 1}] == 0) && (robotMap[{robot[robotId].x + 1 ,robot[robotId].y - 1}] == 0)){return true;}
+            else{return false;}
+            break;
+        case 2:
+            if((robotMap[{robot[robotId].x - 2 ,robot[robotId].y}] == 0) && (robotMap[{robot[robotId].x - 1 ,robot[robotId].y - 1}] == 0) && (robotMap[{robot[robotId].x - 1,robot[robotId].y + 1}] == 0)){return true;}
+            else{return false;}
+            break;
+        case 3:
+            if((robotMap[{robot[robotId].x + 2 ,robot[robotId].y}] == 0) && (robotMap[{robot[robotId].x + 1,robot[robotId].y - 1}] == 0) && (robotMap[{robot[robotId].x + 1 ,robot[robotId].y + 1}] == 0)){return true;}
+            else{return false;}
+            break;
+
+    }
+}
+void swap(int & a, int & b){
+    int tmp = a;
+    a = b;
+    b = tmp;
+}
+void StraightHit(int robotId_1, int robotId_2){  // 双方单路直撞
+    if(robot[robotId_1].goods == 0 && robot[robotId_2].goods == 0){
+        swap(robot[robotId_1].aimX, robot[robotId_2].aimX);
+        swap(robot[robotId_1].aimY, robot[robotId_2].aimY);
+    }
+    else{
+        if(robotId_1 > robotId_2){
+            //robot2让路
+        }
+        else{
+            //robot1让路
+        }
+    }
+}
+
+void SideHit(int robotId_1, int robotId_2){
+    if(robotId_1 > robotId_2){
+        //robot2暂停
+    }
+    else{
+        //robot1暂停
+    }
+}
+
+
+// end of the collision judgment
 
 // 船的specific_status
 #define WAIT 3
