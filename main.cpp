@@ -741,12 +741,7 @@ void GiveBoatCommand()
                 boat[i].specific_status = TO_VIRTUAL;
                 berth[boat[i].pos].is_occupied = false;
             }
-            if (ChangeBerth(i))
-            {
-                printf("ship %d %d\n", i, GetBerthId());
-                boat[i].specific_status = BERTH_TO_BERTH;
-                berth[boat[i].pos].is_occupied = false;
-            }
+
             continue;
         }
     }
