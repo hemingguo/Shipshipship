@@ -490,6 +490,7 @@ struct Boat
     int status;          // 0表示移动（从地图上消失），1表示装货状态或运输完成，2表示等待
     int specific_status; // WAIT表示等待，LOAD表示装货，DONE表示运输完成，TO_BERTH表示去泊位，TO_VIRTUAL表示去虚拟点，BERTH_TO_BERTH改变泊位
     int load_time;       // 在泊位上装货/等待的时间
+    int empty_time;     // 在泊位上没东西装的时间
     Boat()
     {
         num = 0;
@@ -547,11 +548,13 @@ void UpdateBoatSpecificState(int boat_id)
             boat[boat_id].goods_value = 0;
             boat[boat_id].specific_status = LOAD;
             boat[boat_id].load_time = 0;
+            boat[boat_id].empty_time = 0;
         }
         else if (boat[boat_id].specific_status == WAIT || boat[boat_id].specific_status == BERTH_TO_BERTH)
         {
             boat[boat_id].specific_status = LOAD;
             boat[boat_id].load_time = 0;
+            boat[boat_id].empty_time = 0;
         }
         else if (boat[boat_id].specific_status == TO_VIRTUAL)
         {
@@ -559,12 +562,14 @@ void UpdateBoatSpecificState(int boat_id)
             boat[boat_id].goods_value = 0;
             boat[boat_id].specific_status = DONE;
             boat[boat_id].load_time = 0;
+            boat[boat_id].empty_time = 0;
         }
     }
     else if (boat[boat_id].status == 2)
     {
         boat[boat_id].specific_status = WAIT;
         boat[boat_id].load_time = 0;
+        boat[boat_id].empty_time = 0;
     }
     if (boat[boat_id].specific_status == LOAD)
     {
@@ -573,7 +578,11 @@ void UpdateBoatSpecificState(int boat_id)
         for (int i = 0; i < berth[boat[boat_id].pos].loading_speed; i++)
         {
             if (berth[boat[boat_id].pos].goods.empty())
+            {
+                boat[boat_id].empty_time++;
                 break;
+            }
+
             boat[boat_id].goods_value += berth[boat[boat_id].pos].goods.front();
             berth[boat[boat_id].pos].goods.pop_front();
             boat[boat_id].num += 1;
@@ -684,18 +693,22 @@ int GetBerthId()
 /**
  * \brief 装了多少货物后，船只离开泊位进行运输，需要考虑怎么设置阈值.......
  */
+ /*
 int GetThreshold(int boat_id)
 {
     // int threshold = 50;
     int threshold = berth[boat[boat_id].pos].transport_time / 2;
     return threshold;
 }
-
+*/
 bool BoatReadyGo(int boat_id)
 {
-    int threshold = GetThreshold(boat_id);
+
+    //int threshold = GetThreshold(boat_id);
     // 船只满载或者价值超过阈值
-    if ((berth[boat[boat_id].pos].goods.size()  && boat[boat_id].num < boat_capacity )|| boat[boat_id].goods_value < threshold)
+    if(15000 - id <= berth[boat[boat_id].pos].transport_time * 1.5){return true;}
+    //if(15000 - id <=  3 * 15000 - id > berth[boat[boat_id].pos].transport_time && 15000 - id > berth[boat[boat_id].pos].transport_time )
+    if ((boat[boat_id].empty_time < 50  && boat[boat_id].num < boat_capacity )|| boat[boat_id].num < 3/4.0 * boat_capacity)
     {
         return false;
     }
@@ -706,7 +719,7 @@ bool BoatReadyGo(int boat_id)
 }
 bool ChangeBerth(int boat_id)
 {
-    if (boat[boat_id].load_time >= 10)
+    if (boat[boat_id].empty_time > 50   &&  boat[boat_id].num < 3/4.0 * boat_capacity )
     {
         return true;
     }
@@ -740,9 +753,15 @@ void GiveBoatCommand()
                 printf("go %d\n", i);
                 boat[i].specific_status = TO_VIRTUAL;
                 berth[boat[i].pos].is_occupied = false;
+                continue;
+            }
+            if (ChangeBerth(i)){
+                printf("ship %d %d\n", i, GetBerthId());
+                boat[i].specific_status = BERTH_TO_BERTH;
+                berth[boat[i].pos].is_occupied = false;
             }
 
-            continue;
+
         }
     }
 }
