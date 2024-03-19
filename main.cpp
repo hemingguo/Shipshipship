@@ -258,7 +258,7 @@ int findNextStep(int startX, int startY, int bfsId, int robotId)
     return findNextStep(startX, startY, lastId, robotId);
 }
 int seq[4] = {0, 2, 1, 3};
-int seq[4] = {0, 2, 1, 3};
+
 int robotBfsToAim(int startX, int startY, int aimX, int aimY, int robotId)
 {
     int front = 0, rear = 0;
@@ -315,9 +315,7 @@ void toGoods(int robotId)
     pair<int, int> pos = findAimGood(robot[robotId].x, robot[robotId].y);
     robot[robotId].aimX = pos.first;
     robot[robotId].aimY = pos.second;
-    pair<int, int> pos = findAimGood(robot[robotId].x, robot[robotId].y);
-    robot[robotId].aimX = pos.first;
-    robot[robotId].aimY = pos.second;
+
     our_map[robot[robotId].aimX][robot[robotId].aimY].goodRobotId = robotId;
 }
 void toBerth(int robotId)
@@ -416,7 +414,7 @@ void robotAction(int robotId)
 
 
 // start of the collision judgment
-
+/*
 bool isAroundSafe (int robotId){    // 检测周围环境是否有碰撞可能
     switch(robotPath[robotStep[robotId][0]][robotId]){
         case -1:
@@ -441,6 +439,7 @@ bool isAroundSafe (int robotId){    // 检测周围环境是否有碰撞可能
             break;
 
     }
+    return false;
 }
 void swap(int & a, int & b){
     int tmp = a;
@@ -471,7 +470,7 @@ void SideHit(int robotId_1, int robotId_2){
     }
 }
 
-
+*/
 // end of the collision judgment
 
 // 船的specific_status
