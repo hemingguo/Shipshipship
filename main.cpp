@@ -18,6 +18,8 @@ int money, boat_capacity, id;
 char ch[N][N]; // 字符地图
 int gds[N][N];
 
+int berthVal[10], printBerth, printRobot = 1;//������ 
+
 struct Square
 {
     bool isBarrierExist; // 是否有障碍物
@@ -81,6 +83,7 @@ struct Berth
     int loading_speed;
 
     bool is_occupied; // 如果有船占用或有船驶向此泊位，则为true
+    bool is_closed;
     deque<int> goods; // 待装载的货物
     Berth()
     {
@@ -95,6 +98,7 @@ struct Berth
         this->loading_speed = loading_speed;
 
         is_occupied = false;
+        is_closed = false;
     }
     /*
      * \brief 判断(x, y)是否在泊位内
@@ -104,6 +108,8 @@ struct Berth
         return (x >= this->x && x < this->x + 4 && y >= this->y && y < this->y + 4);
     }
 } berth[berth_num + 10];
+int closedBerth = 0;
+int averageTransportTime;
 /*
  * \brief 判断(x, y)在哪个泊位内
  */
@@ -248,7 +254,7 @@ pair<int, int> findAimBerth(int startX, int startY)
             int newY = curY + dy[i];
             if (isValid(newX, newY) && !visitedMap[newX][newY] && !(front <= 10 && robotMap[{newX, newY}] != 0))
             {
-                if (our_map[newX][newY].isBerth)
+                if (our_map[newX][newY].isBerth && !berth[InWhichBerth(newX, newY)].is_closed)
                     return {newX, newY};
                 visitedMap[newX][newY] = true;
                 bfsQueue[rear][0] = newX;
@@ -311,7 +317,6 @@ int robotBfsToAim(int startX, int startY, int aimX, int aimY, int robotId)
                     bfsQueue[rear][1] = newY;
                     bfsQueue[rear][2] = bfsQueue[front - 1][2] + 1;
                     bfsQueue[rear][3] = front - 1;
-                    bfsQueue[rear][4] = seq[i];
                     bfsQueue[rear][4] = seq[i];
                     rear++;
                 }
@@ -427,6 +432,7 @@ bool pullAndGet(int robotId){
     int curX = robot[robotId].x, curY = robot[robotId].y;
     if (robot[robotId].goods && our_map[curX][curY].isBerth)
     {
+    	if(printRobot)
         printf("pull %d\n", robotId);
         // 更新泊位的货物队列。。。如果没pull成功呢？
         int berthId = InWhichBerth(curX, curY); 
@@ -448,6 +454,7 @@ bool pullAndGet(int robotId){
         }
         else
         {
+        	if(printRobot)
            printf("get %d\n", robotId);
            getVal += our_map[curX][curY].goodValue;
             our_map[curX][curY].goodRobotId = -1;
@@ -516,6 +523,7 @@ void toMove(int robotId){
         robotStep[robotId][0]++;
     }
     if (mov != -1){
+    	if(printRobot)
        printf("move %d %d\n", robotId, mov);
         robotMap[{curX, curY}] = 0;
         robotMap[{curX + dx[mov], curY + dy[mov]}] = robotId + 1;
@@ -635,7 +643,9 @@ void Init()
     {
         scanf("%d", &id);
         scanf("%d%d%d%d", &berth[id].x, &berth[id].y, &berth[id].transport_time, &berth[id].loading_speed);
+        averageTransportTime += berth[id].transport_time;
     }
+    averageTransportTime /= 10;
     scanf("%d", &boat_capacity);
     char okk[100];
     scanf("%s", okk);
@@ -665,6 +675,7 @@ void mapInit()
  */
 void UpdateBoatSpecificState(int boat_id)
 {
+	if(closedBerth == 10) return;
     if (boat[boat_id].status == 1)
     {
         if (boat[boat_id].specific_status == TO_BERTH)
@@ -777,6 +788,7 @@ int GetBerthPriority(int berth_id)
     int priority = 0;
     int total_value = GetTotalValue(berth_id);
     // 计算泊位的优先级
+    berthVal[berth_id] = total_value;
     if (berth[berth_id].is_occupied)
     {
         priority = -1000000000;
@@ -791,6 +803,22 @@ int GetBerthPriority(int berth_id)
 /**
  * \brief 获取船只的目标泊位
  */
+void printBerthInf(){
+    cout<<id<<' '<<money<<' '<<ttVal<<endl;
+    for (int i = 0; i < berth_num; i++)
+    {
+        berthVal[i] = GetTotalValue(i);
+    }
+	for(int i=0;i<10;i++)
+		cout<<berthVal[i]<<' ';
+	cout<<endl;
+	for(int i=0;i<10;i++)
+		cout<<berth[i].is_occupied<<' ';
+	cout<<endl;
+	for(int i=0;i<10;i++)
+		cout<<berth[i].is_closed<<' ';
+	cout<<endl;
+}
 int GetBerthId()
 {
     int priority[berth_num + 10]; // 计算泊位的优先级，数值越大优先级越高
@@ -805,7 +833,7 @@ int GetBerthId()
     int max_priority_id = -1;
     for (int i = 0; i < berth_num; i++)
     {
-        if (priority[i] > max_priority)
+        if (priority[i] > max_priority && !berth[i].is_closed)
         {
             max_priority = priority[i];
             max_priority_id = i;
@@ -831,24 +859,45 @@ bool BoatReadyGo(int boat_id)
 
     // int threshold = GetThreshold(boat_id);
     //  船只满载或者价值超过阈值
+
     if (15000 - id <= berth[boat[boat_id].pos].transport_time * 1.1)
     {
+    	berth[boat[boat_id].pos].is_closed = 1;
+	    closedBerth++;
         return true;
     }
+    if(15000 - id <= berth[boat[boat_id].pos].transport_time * 3){    
+		if(boat[boat_id].num >= boat_capacity){
+	    	if(printBerth)
+	    	cout<<boat[boat_id].pos<<' '<<"FULL"<<endl;
+	    	berth[boat[boat_id].pos].is_closed = 1;
+	    	closedBerth++;
+	    	return true;
+		}
+    	return false;
+	}
     // if(15000 - id <=  3 * 15000 - id > berth[boat[boat_id].pos].transport_time && 15000 - id > berth[boat[boat_id].pos].transport_time )
-    if ((boat[boat_id].empty_time < 50 && boat[boat_id].num < boat_capacity) || boat[boat_id].num < 3 / 4.0 * boat_capacity)
+    if ((boat[boat_id].empty_time < 50 && boat[boat_id].num < boat_capacity) || (boat[boat_id].num < 3 / 4.0 * boat_capacity && 15000 - id >= berth[boat[boat_id].pos].transport_time + averageTransportTime * 2.5))
     {
         return false;
     }
     else
     {
+    	if(15000 - id <= berth[boat[boat_id].pos].transport_time * 4 && closedBerth < 5){
+    		berth[boat[boat_id].pos].is_closed = true;
+    		closedBerth ++;
+		}
         return true;
     }
 }
 bool ChangeBerth(int boat_id)
 {
-    if (boat[boat_id].empty_time > 50 && boat[boat_id].num < 3 / 4.0 * boat_capacity)
+    if (boat[boat_id].empty_time > 50 && boat[boat_id].num < 3 / 4.0 * boat_capacity && 15000 - id >= berth[boat[boat_id].pos].transport_time + averageTransportTime * 2.5)
     {
+    	if(15000 - id <= berth[boat[boat_id].pos].transport_time * 4 && closedBerth < 5){
+    		berth[boat[boat_id].pos].is_closed = true;
+    		closedBerth ++;
+		}
         return true;
     }
     else
@@ -870,6 +919,9 @@ void GiveBoatCommand()
             boat[i].goods_value = 0;
             boat[i].load_time = 0;
             boat[i].specific_status = TO_BERTH;
+            if(printBerth){
+            	printBerthInf();
+			}
             printf("ship %d %d\n", i, GetBerthId());
             continue;
         }
@@ -878,6 +930,9 @@ void GiveBoatCommand()
             // 如果船只在泊位装货
             if (BoatReadyGo(i))
             {
+		        if(printBerth){
+		        	printBerthInf();
+				}
                 printf("go %d\n", i);
                 boat[i].specific_status = TO_VIRTUAL;
                 berth[boat[i].pos].is_occupied = false;
@@ -885,6 +940,9 @@ void GiveBoatCommand()
             }
             if (ChangeBerth(i))
             {
+            	if(printBerth){
+		        	printBerthInf();
+				}
                 printf("ship %d %d\n", i, GetBerthId());
                 boat[i].specific_status = BERTH_TO_BERTH;
                 berth[boat[i].pos].is_occupied = false;
@@ -897,6 +955,8 @@ int main()
 //             freopen("output.txt", "r", stdin);
 //             freopen("myoutputship.txt", "w", stdout);
     // srand(static_cast<unsigned int>(time(0)));cout
+//    printRobot = 0;
+//    printBerth = 1;
     Init();
     mapInit(); // 地图类初始化
     initDisBerth();
@@ -918,6 +978,7 @@ int main()
 //		cout<<endl;
         // 为船只下达命令........
         GiveBoatCommand();
+        if(printRobot) 
         puts("OK");
         fflush(stdout);
     }
