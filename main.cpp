@@ -235,7 +235,7 @@ pair<int, int> findAimBerth(int startX, int startY)
             int newY = curY + dy[i];
             if (isValid(newX, newY) && !visitedMap[newX][newY] && !(front <= 10 && robotMap[{newX, newY}] != 0))
             {
-                if (our_map[newX][newY].isBerth)
+                if (our_map[newX][newY].isBerth && robotMap[{newX, newY}] == 0)
                     return {newX, newY};
                 visitedMap[newX][newY] = true;
                 bfsQueue[rear][0] = newX;
@@ -280,15 +280,19 @@ int robotBfsToAim(int startX, int startY, int aimX, int aimY, int robotId)
         front++;
         if (curX == aimX && curY == aimY)
         {
+
             return findNextStep(startX, startY, front - 1, robotId);
+
         }
         for (int i = 0; i < 4; i++)
         {
+
             int newX, newY;
             newX = curX + dx[seq[i]];
             newY = curY + dy[seq[i]];
             newX = curX + dx[seq[i]];
             newY = curY + dy[seq[i]];
+
             if (isValid(newX, newY) && !visitedMap[newX][newY])
             {
                 if (front <= 10 && robotMap[{newX, newY}] != 0 && robotMap[{newX, newY}] < robotId + 1)
@@ -305,6 +309,8 @@ int robotBfsToAim(int startX, int startY, int aimX, int aimY, int robotId)
                     rear++;
                 }
             }
+
+
         }
     }
     return -1;
@@ -344,6 +350,7 @@ void robotAction(int robotId)
         robot[robotId].goods = 0;
         robot[robotId].goodValue = 0; // 货物价值清零
     }
+
     else if ((!robot[robotId].goods) && curX == robot[robotId].aimX && curY == robot[robotId].aimY)
     {
         if (!our_map[curX][curY].GoodExist())
@@ -361,6 +368,7 @@ void robotAction(int robotId)
         }
     }
     int mov = robotBfsToAim(robot[robotId].x, robot[robotId].y, robot[robotId].aimX, robot[robotId].aimY, robotId);
+
     if (mov != -1)
     {
        printf("move %d %d\n", robotId, mov);
@@ -378,6 +386,7 @@ void robotAction(int robotId)
         else
             toBerth(robotId);
     }
+
     if (robot[robotId].goods && our_map[curX][curY].isBerth)
     {
        printf("pull %d\n", robotId);
@@ -391,12 +400,16 @@ void robotAction(int robotId)
         robot[robotId].goods = 0;
         robot[robotId].goodValue = 0; // 货物价值清零
     }
+
     else if ((!robot[robotId].goods) && curX == robot[robotId].aimX && curY == robot[robotId].aimY)
     {
+
+
         if (!our_map[curX][curY].GoodExist())
         {
             toGoods(robotId);
         }
+
         else
         {
            printf("get %d\n", robotId);
@@ -406,6 +419,7 @@ void robotAction(int robotId)
             robot[robotId].goodValue = our_map[curX][curY].goodValue;
             our_map[curX][curY].isGoodExist = false;
         }
+
     }
 }
 //
@@ -550,12 +564,14 @@ void UpdateBoatSpecificState(int boat_id)
             boat[boat_id].load_time = 0;
             boat[boat_id].empty_time = 0;
         }
+
         else if (boat[boat_id].specific_status == WAIT || boat[boat_id].specific_status == BERTH_TO_BERTH)
         {
             boat[boat_id].specific_status = LOAD;
             boat[boat_id].load_time = 0;
             boat[boat_id].empty_time = 0;
         }
+
         else if (boat[boat_id].specific_status == TO_VIRTUAL)
         {
             boat[boat_id].num = 0;
@@ -642,7 +658,7 @@ int GetTotalValue(int berth_id)
 int total_value_weight = 100;
 int transport_time_weight = 10;
 int is_occupied_weight = 1000;
-int loading_speed_weight = 1;
+int loading_speed_weight = 1000;
 
 /**
  * \brief 需要考虑如何计算泊位的优先级......
@@ -658,7 +674,7 @@ int GetBerthPriority(int berth_id)
 	}
     else
     {
-        priority = total_value * total_value_weight - berth[berth_id].transport_time * transport_time_weight - berth[berth_id].loading_speed * loading_speed_weight;
+        priority = total_value * total_value_weight - berth[berth_id].transport_time * transport_time_weight + berth[berth_id].loading_speed * loading_speed_weight;
     }
     return priority;
 }
@@ -707,8 +723,12 @@ bool BoatReadyGo(int boat_id)
     //int threshold = GetThreshold(boat_id);
     // 船只满载或者价值超过阈值
     if(15000 - id <= berth[boat[boat_id].pos].transport_time * 1.5){return true;}
-    //if(15000 - id <=  3 * 15000 - id > berth[boat[boat_id].pos].transport_time && 15000 - id > berth[boat[boat_id].pos].transport_time )
-    if ((boat[boat_id].empty_time < 50  && boat[boat_id].num < boat_capacity )|| boat[boat_id].num < 3/4.0 * boat_capacity)
+
+    if(boat[boat_id].num < boat_capacity  &&  15000 - id <=  3 * berth[boat[boat_id].pos].transport_time && 15000 - id > berth[boat[boat_id].pos].transport_time ){
+        return false;
+    }
+
+    if ((boat[boat_id].empty_time < 1/6.0 * berth[boat[boat_id].pos].transport_time  && boat[boat_id].num < boat_capacity )|| boat[boat_id].num < 3/5.0 * boat_capacity)
     {
         return false;
     }
@@ -719,7 +739,7 @@ bool BoatReadyGo(int boat_id)
 }
 bool ChangeBerth(int boat_id)
 {
-    if (boat[boat_id].empty_time > 50   &&  boat[boat_id].num < 3/4.0 * boat_capacity )
+    if (boat[boat_id].empty_time > 1/6.0 * berth[boat[boat_id].pos].transport_time  &&  boat[boat_id].num < 3/5.0 * boat_capacity )
     {
         return true;
     }
