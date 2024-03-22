@@ -128,17 +128,18 @@ map<pair<int, int>, int> robotMap; //(x, y), haverobot
 //
 int dx[4] = {0, 0, -1, 1};
 int dy[4] = {1, -1, 0, 0};
-int disBerth[205][205];
-
+int disBerth[205][205][10]; //(x,y)µΩi∫≈berthµƒæ‡¿Î 
+int minDisBerth[205][205];
 bool isValid(int x, int y)
 {
     return (x >= 0 && x < 200 && y >= 0 && y < 200 && (!our_map[x][y].isBarrierExist));
 }
-void berthBfs(int x, int y)
+void berthBfs(int x, int y, int berthId)
 {
     queue<pair<int, int> > q;
     q.push({x, y});
-    disBerth[x][y] = 0;
+    disBerth[x][y][berthId] = 0;
+    minDisBerth[x][y] = 0;
     while (!q.empty())
     {
         pair<int, int> curr = q.front();
@@ -148,10 +149,12 @@ void berthBfs(int x, int y)
         {
             int newX = curX + dx[i];
             int newY = curY + dy[i];
-            if (isValid(newX, newY) && disBerth[curX][curY] + 1 < disBerth[newX][newY])
+            if (isValid(newX, newY) && disBerth[curX][curY][berthId] + 1 < disBerth[newX][newY][berthId])
             {
                 q.push({newX, newY});
-                disBerth[newX][newY] = disBerth[curX][curY] + 1;
+                disBerth[newX][newY][berthId] = disBerth[curX][curY][berthId] + 1;
+                if(minDisBerth[newX][newY]  > disBerth[newX][newY][berthId])
+                	minDisBerth[newX][newY]  = disBerth[newX][newY][berthId];
             }
         }
     }
@@ -171,15 +174,48 @@ void initDisBerth()
 {
     for (int i = 0; i < 200; i++)
         for (int j = 0; j < 200; j++)
-            disBerth[i][j] = 45000;
+        	for(int k = 0; k < 10; k++)
+            	disBerth[i][j][k] = 45000;
+    for (int i = 0; i < 200; i++)
+        for (int j = 0; j < 200; j++)
+            minDisBerth[i][j] = 45000;
     for (int i = 0; i < berth_num; i++)
     {
-        berthBfs(berth[i].x, berth[i].y);
+        berthBfs(berth[i].x, berth[i].y, i);
     }
+}
+queue<pair<int, int> > berthNearGood[10]; //{generatetime, val/dis}
+int berthNearGoodTotal[10];
+void addGoodToBerth(int x, int y, int val){
+	for(int i = 0; i < 10; i++){
+		if(disBerth[x][y][i] < 150){
+			berthNearGood[i].push({id, val / disBerth[x][y][i]});//≤Œ ˝ø…∏ƒ 
+			berthNearGoodTotal[i] += val / disBerth[x][y][i];
+		}
+	}
+}
+void deleteGoodFromBerth(int x, int y, int val){
+	for(int i = 0; i < 10; i++){
+		if(disBerth[x][y][i] < 150){
+			berthNearGoodTotal[i] -= val / disBerth[x][y][i];
+		}
+	}
+}
+void updateBerthGoodQueue(){
+	for(int i = 0; i < 10; i++){
+		while(id - berthNearGood[i].front().first > 1000){
+			berthNearGoodTotal[i] -= berthNearGood[i].front().second;
+		}
+	}
 }
 float valueFunctionGood(int dis, int goodX, int goodY, int value)
 {
-    return value / (float)(dis + disBerth[goodX][goodY]);
+    return value / (float)(dis);
+}
+float valueFunctionBerth(int robotId, int berthId){
+	int x = berthNearGoodTotal[berthId] - 10 * disBerth[robot[robotId].x][robot[robotId].y][berthId] - 100000000 * berth[berthId].is_closed;
+//	cout<<x<<' '<<robot[robotId].x << ' ' << robot[robotId].y<<' '<<berthId<<endl;
+	return x;
 }
 
 
@@ -230,8 +266,22 @@ pair<int, int> findAimGood(int startX, int startY)
     }
     return maxGoodPos;
 }
-pair<int, int> findAimBerth(int startX, int startY)
+int findMaxBerth(int robotId){
+	int maxberth = 0, maxVal = valueFunctionBerth(robotId, 0);
+	for(int i = 1; i < 10; i++){
+		int val = valueFunctionBerth(robotId, i);
+		if(val > maxVal){
+			maxberth = i;
+			maxVal = val;
+		}
+	}
+//	cout<<maxberth<<endl;
+	return maxberth;
+}
+pair<int, int> findAimBerth(int startX, int startY, int robotId)
 {
+	int aimBerthId = findMaxBerth(robotId);
+//	cout<<"start"<<' '<<aimBerthId<<endl;
     int front = 0, rear = 0;
     if (our_map[startX][startY].isBerth)
         return {startX, startY};
@@ -254,8 +304,12 @@ pair<int, int> findAimBerth(int startX, int startY)
             int newY = curY + dy[i];
             if (isValid(newX, newY) && !visitedMap[newX][newY] && !(front <= 10 && robotMap[{newX, newY}] != 0))
             {
-                if (our_map[newX][newY].isBerth && !berth[InWhichBerth(newX, newY)].is_closed)
-                    return {newX, newY};
+                if (our_map[newX][newY].isBerth)
+                	if(InWhichBerth(newX, newY) == aimBerthId)
+                    	return {newX, newY};
+                    else
+                    	cout<<InWhichBerth(newX, newY)<<' '<<aimBerthId<<endl;
+//                cout<<newX<<' '<<newY<<' '<<curDis+1<<endl;
                 visitedMap[newX][newY] = true;
                 bfsQueue[rear][0] = newX;
                 bfsQueue[rear][1] = newY;
@@ -264,6 +318,7 @@ pair<int, int> findAimBerth(int startX, int startY)
             }
         }
     }
+//    cout<<"end"<<endl;
     return {startX, startY};
 }
 int findNextStep(int startX, int startY, int bfsId, int robotId)
@@ -335,7 +390,7 @@ void toGoods(int robotId)
 }
 void toBerth(int robotId)
 {
-    pair<int, int> pos = findAimBerth(robot[robotId].x, robot[robotId].y);
+    pair<int, int> pos = findAimBerth(robot[robotId].x, robot[robotId].y, robotId);
     robot[robotId].aimX = pos.first;
     robot[robotId].aimY = pos.second;
 }
@@ -455,8 +510,9 @@ bool pullAndGet(int robotId){
         else
         {
         	if(printRobot)
-           printf("get %d\n", robotId);
-           getVal += our_map[curX][curY].goodValue;
+            printf("get %d\n", robotId);
+            deleteGoodFromBerth(curX, curY, our_map[curX][curY].goodValue);
+            getVal += our_map[curX][curY].goodValue;
             our_map[curX][curY].goodRobotId = -1;
             toBerth(robotId);
             robot[robotId].goods = 1;
@@ -538,6 +594,9 @@ void toMove(int robotId){
     }
 }
 void robotActionNew(int robotId){
+	if(closedBerth == 10){
+		return;
+	} 
     pullGetFlag[robotId] |= pullAndGet(robotId);
     toMove(robotId);
     pullGetFlag[robotId] = pullAndGet(robotId);
@@ -737,7 +796,9 @@ int Input()
         int x, y, val;
         scanf("%d%d%d", &x, &y, &val);
         our_map[x][y].generateGood(val, id); // ÁîüÊàêË¥ßÁâ©
+        addGoodToBerth(x, y, val); 
     }
+    updateBerthGoodQueue();
     robotMap.clear();
     for (int i = 0; i < robot_num; i++)
     {
@@ -862,16 +923,21 @@ bool BoatReadyGo(int boat_id)
 
     if (15000 - id <= berth[boat[boat_id].pos].transport_time * 1.1)
     {
+    	if(closedBerth < 9){
     	berth[boat[boat_id].pos].is_closed = 1;
 	    closedBerth++;
+		}
         return true;
     }
     if(15000 - id <= berth[boat[boat_id].pos].transport_time * 3){    
 		if(boat[boat_id].num >= boat_capacity){
 	    	if(printBerth)
 	    	cout<<boat[boat_id].pos<<' '<<"FULL"<<endl;
-	    	berth[boat[boat_id].pos].is_closed = 1;
-	    	closedBerth++;
+	    	
+	    	if(closedBerth < 9){
+		    	berth[boat[boat_id].pos].is_closed = 1;
+			    closedBerth++;
+			}
 	    	return true;
 		}
     	return false;
@@ -964,7 +1030,7 @@ int main()
     {
         id = Input();
 //     	cout<<id<<' '<<money<<' '<<ttVal<<' '<<getVal<<endl;
-		for(int i = 0; i<9;i++)
+//		for(int i = 0; i<9;i++)
         if (zhen == 1)
             for (int i = 0; i < robot_num; i++)
             {
@@ -975,9 +1041,11 @@ int main()
             //             printf("move %d %d\n", i, rand() % 4);
 //            robotAction(i);
 			robotActionNew(i);
+//			cout<<id<<endl; 
 //		cout<<endl;
         // ‰∏∫ËàπÂè™‰∏ãËææÂëΩ‰ª§........
         GiveBoatCommand();
+//        cout<<id<<endl;
         if(printRobot) 
         puts("OK");
         fflush(stdout);
