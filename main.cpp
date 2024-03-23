@@ -222,10 +222,10 @@ void updateBerthGoodQueue(){
 float valueFunctionGood(int dis, int goodX, int goodY, int value)
 {
 
-    return value / (float)(dis);
+    return  value /  (float)(dis);
 }
 float valueFunctionBerth(int robotId, int berthId){
-	int x = berthNearGoodTotal[berthId] - 25 * disBerth[robot[robotId].x][robot[robotId].y][berthId]  - 100000000 * berth[berthId].is_closed;
+	int x = berthNearGoodTotal[berthId]  - 70.0 * disBerth[robot[robotId].x][robot[robotId].y][berthId]  - 100000000 * berth[berthId].is_closed;
 //	cout<<x<<' '<<robot[robotId].x << ' ' << robot[robotId].y<<' '<<berthId<<endl;
 	return x;
 
@@ -593,7 +593,7 @@ void toMove(int robotId)
     //		mov = robotBfsToAim(robot[robotId].x, robot[robotId].y, robot[robotId].aimX, robot[robotId].aimY, robotId);
     //	}
     //	else
-    if (generateRandom() < 0.05 && robot[robotId].goods)
+    if (generateRandom() < 0.08 && robot[robotId].goods)
     {
         toBerth(robotId);
         mov = robotBfsToAim(robot[robotId].x, robot[robotId].y, robot[robotId].aimX, robot[robotId].aimY, robotId);
@@ -960,14 +960,14 @@ bool BoatReadyGo(int boat_id)
     // int threshold = GetThreshold(boat_id);
     //  船只满载或者价值超过阈值
 
-    if (15000 - id <= berth[boat[boat_id].pos].transport_time * 1.1)
+    if (15000 - id <= berth[boat[boat_id].pos].transport_time * 1.14)
     {
 
         berth[boat[boat_id].pos].is_closed = 1;
         closedBerth++;
         return true;
     }
-    if (15000 - id <= berth[boat[boat_id].pos].transport_time * 3)
+    if (15000 - id <= berth[boat[boat_id].pos].transport_time * 3.14)
     {
         if (boat[boat_id].num >= boat_capacity)
         {
@@ -981,14 +981,14 @@ bool BoatReadyGo(int boat_id)
     }
 
     // if(15000 - id <=  3 * 15000 - id > berth[boat[boat_id].pos].transport_time && 15000 - id > berth[boat[boat_id].pos].transport_time )
-    if ((boat[boat_id].empty_time < 50 && boat[boat_id].num < boat_capacity) || (boat[boat_id].num < 3 / 4.0 * boat_capacity && 15000 - id >= berth[boat[boat_id].pos].transport_time + averageTransportTime * 2.5))
+    if ((boat[boat_id].empty_time < 50 && boat[boat_id].num < boat_capacity) || (boat[boat_id].num < 0.8 * boat_capacity && 15000 - id >= berth[boat[boat_id].pos].transport_time + averageTransportTime * 2.5))
     {
         return false;
     }
     else
     {
 
-        if (15000 - id <= berth[boat[boat_id].pos].transport_time * 4 && closedBerth < 5)
+        if (15000 - id <= berth[boat[boat_id].pos].transport_time * 4.14 && closedBerth < 5)
         {
             berth[boat[boat_id].pos].is_closed = true;
             closedBerth++;
@@ -999,10 +999,10 @@ bool BoatReadyGo(int boat_id)
 }
 bool ChangeBerth(int boat_id)
 {
-    if (boat[boat_id].empty_time > 50 && boat[boat_id].num < 3 / 4.0 * boat_capacity && 15000 - id >= berth[boat[boat_id].pos].transport_time + averageTransportTime * 2.5)
+    if (boat[boat_id].empty_time > 50 && boat[boat_id].num < 0.8 * boat_capacity && 15000 - id >= berth[boat[boat_id].pos].transport_time + averageTransportTime * 2.5)
     {
 
-        if (15000 - id <= berth[boat[boat_id].pos].transport_time * 4 && closedBerth < 5)
+        if (15000 - id <= berth[boat[boat_id].pos].transport_time * 4.14 && closedBerth < 5)
         {
             berth[boat[boat_id].pos].is_closed = true;
             closedBerth++;
